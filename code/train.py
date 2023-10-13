@@ -3,22 +3,25 @@ import os
 import time
 import torch
 from torchsummary import summary
-from network.main import Deep_SVDD, Autoencoder
+from .network.main import DeepSVDD, Autoencoder
+
 
 class TrainerDeepSVDD:
     def __init__(self, args, data_loader, device):
         self.args = args
         self.train_loader = data_loader
         self.device = device
-        os.mkdir(self.args.path)
+        os.mkdir(self.args.output_path)
 
     def pretrain(self):
         ae = Autoencoder(self.args).to(self.device)
         ae.apply(weights_init_normal)
-        optimizer = torch.optim.Adam(ae.parameters(), lr=self.args.lr_ae, weight_decay=self.args.weight_decay_ae)
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=self.args.lr_milestones, gamma=0.1)
+        optimizer = torch.optim.Adam(
+            ae.parameters(), lr=self.args.lr_ae, weight_decay=self.args.weight_decay_ae)
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(
+            optimizer, milestones=self.args.lr_milestones, gamma=0.1)
         ae.train()
-        print(summary(ae, (1, self.args.net_name, self.args.net_name)))
+        print(summary(ae, (1, self.args.image_height, self.args.image_width)))
         losses = []
         for epoch in range(self.args.num_epochs_ae):
             start = time.time()
@@ -28,7 +31,8 @@ class TrainerDeepSVDD:
 
                 optimizer.zero_grad()
                 x_hat = ae(x)
-                reconst_loss = torch.mean(torch.sum((x_hat - x) ** 2, dim=tuple(range(1, x_hat.dim()))))
+                reconst_loss = torch.mean(
+                    torch.sum((x_hat - x) ** 2, dim=tuple(range(1, x_hat.dim()))))
                 reconst_loss.backward()
                 optimizer.step()
 
@@ -37,36 +41,26 @@ class TrainerDeepSVDD:
             loss_temp = total_loss/len(self.train_loader)
             losses.append(loss_temp)
             if loss_temp <= min(losses):
-                self.ae_best_model_save(ae, self.train_loader)
+                c = self.set_c(ae, self.train_loader)
+                torch.save({'center': c.cpu().data.numpy().tolist(),
+                            'net_dict': ae.state_dict()},
+                           self.args.output_path+'AE_best_save.pth')
                 print(f'save best model at {epoch+1} epoch')
             print(f'Pretraining Autoencoder... Epoch: {epoch+1}, Loss: {loss_temp:.6f}, Time: {time.time()-start}')
         losses = np.array(losses)
-        np.save(self.args.path+'AE_Loss.npy', losses)
+        np.save(self.args.output_path+'AE_Loss.npy', losses)
         self.save_weights_for_DeepSVDD(ae)
-    
-    def ae_best_model_save(self, model, dataloader):
-        c = self.set_c(model, dataloader)
-        torch.save({'center': c.cpu().data.numpy().tolist(),
-                    'net_dict': model.state_dict()},
-                    self.args.path+'AE_best_save.pth')
-        
+
     def save_weights_for_DeepSVDD(self, model):
-        """
-        학습된 AutoEncoder의 가중치를 Deep_SVDD 모델에 Initialize해주는 함수
-        Best_model로 적용하려고 코드가 좀 복잡해짐
-        train함수의 if self.args.pretrain==True 하위 명령어를 참고했음
-        왜 구분해놓은지는 모르겠음 load_state_dict의 strict인수때문인가?
-        이해도가 높아져서 내 예상이 맞다면 이 함수를 없애고 train함수 내부로 아래 명령어를 편입하는게 좋을듯
-        """
-        state_dict = torch.load(self.args.path+'AE_best_save.pth')
+        state_dict = torch.load(self.args.output_path+'AE_best_save.pth')
         model.load_state_dict(state_dict['net_dict'])
         c = torch.Tensor(state_dict['center']).to(self.device)
-        net = Deep_SVDD(self.args).to(self.device)
+        net = DeepSVDD(self.args).to(self.device)
         state_dict = model.state_dict()
         net.load_state_dict(state_dict, strict=False)
         torch.save({'center': c.cpu().data.numpy().tolist(),
                     'net_dict': net.state_dict()},
-                    self.args.path+'pretrained_SVDD.pth')
+                   self.args.output_path+'pretrained_SVDD.pth')
 
     def set_c(self, model, dataloader, eps=0.1):
         model.eval()
@@ -83,9 +77,10 @@ class TrainerDeepSVDD:
         return c
 
     def train(self):
-        net = Deep_SVDD(self.args).to(self.device)
-        if self.args.pretrain==True:
-            state_dict = torch.load(self.args.path+'pretrained_SVDD.pth')
+        net = DeepSVDD(self.args).to(self.device)
+        if self.args.pretrain == True:
+            state_dict = torch.load(
+                self.args.output_path+'pretrained_SVDD.pth')
             net.load_state_dict(state_dict['net_dict'])
             c = torch.Tensor(state_dict['center']).to(self.device)
         else:
@@ -94,7 +89,7 @@ class TrainerDeepSVDD:
 
         optimizer = torch.optim.Adam(net.parameters(), lr=self.args.lr, weight_decay=self.args.weight_decay)
         scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=self.args.lr_milestones, gamma=0.1)
-        print(summary(net, (1, self.args.net_name, self.args.net_name)))
+        print(summary(net, (1, self.args.image_height, self.args.image_width)))
         net.train()
         losses = []
         for epoch in range(self.args.num_epochs):
@@ -116,16 +111,14 @@ class TrainerDeepSVDD:
             losses.append(loss_temp)
             if loss_temp <= min(losses):
                 torch.save({'center': c.cpu().data.numpy().tolist(),
-                    'net_dict': net.state_dict()},
-                    self.args.path+'Deep_SVDD_best_save.pth')
+                            'net_dict': net.state_dict()},
+                           self.args.output_path+'Deep_SVDD_best_save.pth')
                 print(f'save best model at {epoch+1} epoch')
             print(f'Training Deep SVDD... Epoch: {epoch+1}, Loss: {loss_temp:.6f}, Time: {time.time()-start}')
         losses = np.array(losses)
-        np.save(self.args.path+'Deep_SVDD_Loss.npy', losses)
-        self.net = net
-        self.c = c
+        np.save(self.args.output_path+'Deep_SVDD_Loss.npy', losses)
 
-        return self.net, self.c
+
 
 def weights_init_normal(m):
     classname = m.__class__.__name__

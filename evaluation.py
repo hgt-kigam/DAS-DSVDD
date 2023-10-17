@@ -53,7 +53,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 args = easydict.EasyDict({
        'batch_size':4,
        'latent_dim':100,
-       'path':'./1012/',
+       'path':'./1012_1/',
        'num_workers_dataloader': 8,
        'num_filter': 32
                 })

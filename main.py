@@ -20,7 +20,7 @@ args = easydict.EasyDict({
     'image_height': 1000,
     'image_width': 406,
     'num_workers_dataloader': 8,
-    'output_path': './1012_3/'
+    'output_path': './1016_test_1400/'
 })
 
 if __name__ == '__main__':

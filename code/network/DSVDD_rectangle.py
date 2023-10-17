@@ -3,6 +3,7 @@ import torch
 import easydict
 from torchsummary import summary
 
+
 class Deep_SVDD(nn.Module):
     def __init__(self, args):
         super(Deep_SVDD, self).__init__()
@@ -56,20 +57,19 @@ class pretrain_autoencoder(nn.Module):
         x = self.flatten(x)
         encoded = self.linear_1(x)
         return encoded
-    
-    def forward(self, x):
-        x = self.conv_1(x)
-        x = self.conv_2(x)
-        x = self.conv_3(x)
-        x = self.conv_4(x)
-        x = self.flatten(x)
-        encoded = self.linear_1(x)
-        x = self.linear_2(encoded)
+
+    def decoder(self, x):
+        x = self.linear_2(x)
         x = self.unflatten(x)
         x = self.trans_1(x)
         x = self.trans_2(x)
         x = self.trans_3(x)
         decoded = self.trans_4(x)
+        return decoded
+
+    def forward(self, x):
+        encoded = self.encoder(x)
+        decoded = self.decoder(encoded)
         return decoded
 
 
@@ -87,7 +87,7 @@ def conv_block(in_dim, out_dim):
 
 def conv_trans_block(in_dim, out_dim):
     model = nn.Sequential(
-        nn.ConvTranspose2d(in_dim, out_dim, kernel_size=7, stride=3, padding=3 , bias=False),
+        nn.ConvTranspose2d(in_dim, out_dim, kernel_size=7, stride=3, padding=3, bias=False),
         nn.ReLU(),
         nn.BatchNorm2d(out_dim, eps=1e-04, affine=False),
         nn.Conv2d(out_dim, out_dim, kernel_size=7, padding='same', bias=False),
@@ -95,10 +95,11 @@ def conv_trans_block(in_dim, out_dim):
         nn.BatchNorm2d(out_dim, eps=1e-04, affine=False)
     )
     return model
+
 
 def conv_trans_block_1(in_dim, out_dim):
     model = nn.Sequential(
-        nn.ConvTranspose2d(in_dim, out_dim, kernel_size=7, stride=3, padding=3, output_padding=(1,0), bias=False),
+        nn.ConvTranspose2d(in_dim, out_dim, kernel_size=7, stride=3, padding=3, output_padding=(1, 0), bias=False),
         nn.ReLU(),
         nn.BatchNorm2d(out_dim, eps=1e-04, affine=False),
         nn.Conv2d(out_dim, out_dim, kernel_size=7, padding='same', bias=False),
@@ -107,19 +108,21 @@ def conv_trans_block_1(in_dim, out_dim):
     )
     return model
 
+
 def conv_trans_block_2(in_dim, out_dim):
     model = nn.Sequential(
-        nn.ConvTranspose2d(in_dim, out_dim, kernel_size=7, stride=3, padding=3 , bias=False),
+        nn.ConvTranspose2d(in_dim, out_dim, kernel_size=7, stride=3, padding=3, bias=False),
         nn.ReLU(),
         nn.BatchNorm2d(out_dim, eps=1e-04, affine=False),
         nn.Conv2d(out_dim, out_dim, kernel_size=7, padding='same', bias=False)
     )
     return model
 
-# device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-# args = easydict.EasyDict({
-#         'num_filter':32,
-#         'latent_dim':100
-#                 })
-# ae = pretrain_autoencoder(args).to(device)
-# print(summary(ae, (1, 1000, 406)))
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+args = easydict.EasyDict({
+        'num_filter': 32,
+        'latent_dim': 100
+                })
+ae = pretrain_autoencoder(args).to(device)
+print(summary(ae, (1, 1000, 406)))

@@ -6,6 +6,7 @@ from sklearn.metrics import roc_auc_score
 from code.dataloader import make_dataloader
 from code.network.DSVDD_rectangle import Deep_SVDD
 
+
 def test_eval(net, c, device, dataloader):
 
     scores = []
@@ -20,7 +21,7 @@ def test_eval(net, c, device, dataloader):
             x = x.float().to(device)
             z = net(x)
             score = torch.mean((z - c) ** 2, dim=1)
-          
+
             x_list.append(x.detach().cpu())
             z_list.append(((z-c)**2).detach().cpu())
             scores.append(score.detach().cpu())
@@ -34,29 +35,32 @@ def test_eval(net, c, device, dataloader):
 
 
 def plot_representations(data, labels):
-    fig = plt.figure(figsize = (10, 10))
+    fig = plt.figure(figsize=(10, 10))
     ax = fig.add_subplot(111)
     scatter = ax.scatter(data[:, 0], data[:, 1], c=labels)
     handles, labels = scatter.legend_elements()
     # ax.set_xlim(-100, 100)
     # ax.set_ylim(-100, 100)
-    legend = ax.legend(handles = handles, labels = labels)
+    # legend = ax.legend(handles=handles, labels=labels)
+    ax.legend(handles=handles, labels=labels)
     plt.show()
+
 
 def get_tsne(data, n_components=2):
     tsne = TSNE(n_components=n_components, random_state=908)
     tsne_data = tsne.fit_transform(data)
     return tsne_data
 
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 args = easydict.EasyDict({
-       'batch_size':4,
-       'latent_dim':100,
-       'path':'./1012_1/',
+       'batch_size': 4,
+       'latent_dim': 100,
+       'path': './1012_1/',
        'num_workers_dataloader': 8,
        'num_filter': 32
-                })
+       })
 
 dataloader_test = make_dataloader(data_dir='../image/1010_test', args=args, shuffle=False)
 # dataloader_test = make_dataloader(data_dir='../image/0830/', args=args, shuffle=False)

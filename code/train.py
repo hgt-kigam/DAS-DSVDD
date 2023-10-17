@@ -85,7 +85,7 @@ class TrainerDeepSVDD:
 
     def train(self):
         net = DeepSVDD(self.args).to(self.device)
-        if self.args.pretrain == True:
+        if self.args.pretrain is True:
             state_dict = torch.load(
                 self.args.output_path+'pretrained_SVDD.pth')
             net.load_state_dict(state_dict['net_dict'])
@@ -129,7 +129,6 @@ class TrainerDeepSVDD:
         plt.plot(losses)
         plt.savefig(self.args.output_path+'Deep_SVDD_Loss.png', format='png')
         np.save(self.args.output_path+'Deep_SVDD_Loss.npy', losses)
-
 
 
 def weights_init_normal(m):

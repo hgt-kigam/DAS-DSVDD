@@ -1,6 +1,5 @@
 import torch
 import numpy as np
-import matplotlib.pyplot as plt
 
 state_dict = torch.load('./1016_test_1400/AE_best_save.pth')
 c = state_dict['center']

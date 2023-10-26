@@ -55,9 +55,9 @@ def get_tsne(data, n_components=2):
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 args = easydict.EasyDict({
-       'batch_size': 4,
+       'batch_size': 1024,
        'latent_dim': 100,
-       'path': './1012_1/',
+       'path': './1020_AutoAugment_test/',
        'num_workers_dataloader': 8,
        'num_filter': 32
        })

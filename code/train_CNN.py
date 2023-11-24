@@ -3,7 +3,7 @@ import os
 import time
 import torch
 import matplotlib.pyplot as plt
-from torchinfo import summary
+from torchsummary import summary
 from .network.main import DeepSVDD, Autoencoder
 from torch.utils.tensorboard import SummaryWriter
 
@@ -22,16 +22,15 @@ class TrainerDeepSVDD:
         with torch.no_grad():
             for x_cpu, _ in self.dataloader_test:
                 fig, axs = plt.subplots(2, 2, sharex=True, sharey=True, constrained_layout=True, figsize=(4, 10))
-                x_cpu = x_cpu.reshape((self.args.batch_size, self.args.image_height, self.args.image_width))
                 x = x_cpu.float().to(self.device)
                 x_hat = net(x).detach().cpu()
-                axs[0][0].imshow(x_cpu[0, :, :], cmap='gray')
+                axs[0][0].imshow(x_cpu[0, 0, :, :], cmap='gray')
                 axs[0][0].set_title('input')
-                axs[1][0].imshow(x_cpu[1, :, :], cmap='gray')
+                axs[1][0].imshow(x_cpu[1, 0, :, :], cmap='gray')
                 axs[1][0].set_title('input')
-                axs[0][1].imshow(x_hat[0, :, :], cmap='gray')
+                axs[0][1].imshow(x_hat[0, 0, :, :], cmap='gray')
                 axs[0][1].set_title('output')
-                axs[1][1].imshow(x_hat[1, :, :], cmap='gray')
+                axs[1][1].imshow(x_hat[1, 0, :, :], cmap='gray')
                 axs[1][1].set_title('output')
                 net.train()
                 break
@@ -48,9 +47,8 @@ class TrainerDeepSVDD:
                                                          milestones=self.args.lr_milestones,
                                                          gamma=0.1
                                                          )
-        # self.writer.add_graph(ae, torch.randn(1, self.args.image_height, self.args.image_width).to(self.device))
-        # print(summary(ae, (1, self.args.image_height, self.args.image_width)))
-        # summary(ae, (1, self.args.image_height, self.args.image_width), row_settings=["var_names"])
+        self.writer.add_graph(ae, torch.Tensor(1, 1, self.args.image_height, self.args.image_width).to(self.device))
+        print(summary(ae, (1, self.args.image_height, self.args.image_width)))
         ae.train()
 
         losses = []
@@ -73,11 +71,11 @@ class TrainerDeepSVDD:
             losses.append(loss_temp)
             self.writer.add_figure('actuals vs. predictions', self.plot_classes_preds(ae), global_step=epoch+1)
             if loss_temp <= min(losses):
-                # c = self.set_c(ae, self.train_loader)
-                # torch.save({'center': c.cpu().data.numpy().tolist(), 'net_dict': ae.state_dict()},
-                #            self.args.output_path+'AE_best_save.pth'
-                #            )
-                # ae.train()
+                c = self.set_c(ae, self.train_loader)
+                torch.save({'center': c.cpu().data.numpy().tolist(), 'net_dict': ae.state_dict()},
+                           self.args.output_path+'AE_best_save.pth'
+                           )
+                ae.train()
                 print(f'save best model at {epoch+1} epoch')
             print(f'Pretraining Autoencoder... Epoch: {epoch+1}, Loss: {loss_temp:.6f}, Time: {time.time()-start}')
         self.writer.flush()
@@ -102,22 +100,21 @@ class TrainerDeepSVDD:
                    self.args.output_path+'pretrained_SVDD.pth'
                    )
 
-    # def set_c(self, model, dataloader, eps=0.1):
-    #     model.eval()
-    #     z_ = []
-    #     with torch.no_grad():
-    #         for x, _ in dataloader:
-    #             x = x.reshape((self.args.batch_size, self.args.image_height, self.args.image_width))
-    #             x = x.float().to(self.device)
-    #             z = model.encoder(x)
-    #             z_.append(z.detach())
-    #     z_ = torch.cat(z_)
-    #     # print('z_ -after torch.cat', z_.shape)
-    #     c = torch.mean(z_, dim=0)
-    #     # print('c -after torch.mean', c.shape)
-    #     c[(abs(c) < eps) & (c < 0)] = -eps
-    #     c[(abs(c) < eps) & (c > 0)] = eps
-    #     return c
+    def set_c(self, model, dataloader, eps=0.1):
+        model.eval()
+        z_ = []
+        with torch.no_grad():
+            for x, _ in dataloader:
+                x = x.float().to(self.device)
+                z = model.encoder(x)
+                z_.append(z.detach())
+        z_ = torch.cat(z_)
+        # print('z_ -after torch.cat', z_.shape)
+        c = torch.mean(z_, dim=0)
+        # print('c -after torch.mean', c.shape)
+        c[(abs(c) < eps) & (c < 0)] = -eps
+        c[(abs(c) < eps) & (c > 0)] = eps
+        return c
 
     def train(self):
         net = DeepSVDD(self.args).to(self.device)
